@@ -7,6 +7,8 @@ import gym
 from gym import error, spaces, utils
 from gym.utils import seeding
 from PIL import Image
+import math
+import json
 
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -14,89 +16,132 @@ from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 
-playDuration = 5
-driver = None
+class GameObservation(object):
+    stats = None
+    image = None
+    curX = 0
+    curY = 0
+
+    # The class "constructor" - It's actually an initializer 
+    def __init__(self, stats, image):
+        self.stats = stats
+        self.image = image
 
 class MultiSnakeEnv(gym.Env):
     # step reset render close seed
     # action_space: The Space object corresponding to valid actions
     # observation_space: The Space object corresponding to valid observations
     # reward_range: A tuple corresponding to the min and max possible rewards
+    playDuration = 0
+    radius = 0
+    driver = None
+    gameObject = None
+    curPosX = 0
+    curPosY = 0
 
-    def __init__(self):
-        # initialize the Game, raise error if not implemented.
-        global driver
-        action_space = None
-        observation_space = None
-        reward_range = None
-
-        driver = webdriver.Firefox()
-        driver.get("http://localhost:8080/slither-io/")
-        driver.execute_script("window.game.paused = true;")
-        print('Śtarted')
-
-    def step(self, x, y):
-        global driver
-        gameObj = dict()
-
-        driver.execute_script("window.targetX = " + str(x) + ";")
-        driver.execute_script("window.targetY = " + str(y) + ";")
-        driver.execute_script("window.game.paused = false;")
+    def gamePause(self, duration):
         try:
-            print("playing")
-            element = WebDriverWait(driver, playDuration).until(
+            print("pause", duration)
+            element = WebDriverWait(self.driver, duration).until(
                 EC.presence_of_element_located((By.ID, "doesNotExist"))
             )
         except:
             pass
-        
-        driver.execute_script("window.game.paused = true;")
-        try:
-            print("paused")
-            
-            canvasEle = driver.find_elements_by_css_selector('canvas')[0]
-            location = canvasEle.location
-            size = canvasEle.size
-            driver.save_screenshot('gamescreenshot.png')
-            
-            im = Image.open('gamescreenshot.png')
-            left = location['x']
-            top = location['y']
-            right = location['x'] + size['width']
-            bottom = location['y'] + size['height']
-            im = im.crop((left, top, right, bottom))
-            gameObj['image'] = im
-            # im.save('gamescreenshot.png')
-            
-            driver.execute_script("window.getGameStats();")
-            try:
-                elementD1 = WebDriverWait(driver, 0.5).until(
-                    EC.presence_of_element_located((By.ID, "doesNotExist"))
-                )
-            except:
-                print('pause exception 1')
-            finally:
-                print('gameStats')
-                gameStatsEle = driver.find_element_by_id('gameStats')
-                gameObj['stats'] = gameStatsEle.get_attribute('innerHTML')
-                #print(gameStatsEle)
-        except:
-            print('pause exception 2')
 
-        return gameObj
+    def __init__(self):
+        # initialize the Game, raise error if not implemented.
+        self.action_space = spaces.Tuple((spaces.Discrete(36), spaces.Discrete(36)))
+        self.observation_space = None
+        self.viewer = None
+        self.state = None
+        self.radius = 200
+        self.playDuration = 10
+        self.seed()
+        self.driver = webdriver.Firefox()
+        self.driver.get("http://localhost:8080/slither-io/")
+        self.driver.execute_script("window.game.paused = true;")
+        self.gamePause(2)
+        self.gameObject = self.getGameStats()
+        print('Śtarted')
+
+    def getTargetPos(self, action):
+        x = 0
+        y = 0
+
+        if action >= 0 and action <= 8:        
+            theta = 10 * (action + 1)
+            x = self.gameObject.curX + self.radius * math.sin(math.radians(theta))
+            y = self.gameObject.curY + self.radius * math.cos(math.radians(theta))
+        elif action >= 9 and action <= 17:
+            theta = 10 * (action + 1) - 90
+            x = self.gameObject.curX + self.radius * math.cos(math.radians(theta))
+            y = self.gameObject.curY - self.radius * math.sin(math.radians(theta))
+        elif action >= 18 and action <= 26:
+            theta = 10 * (action + 1) - 180
+            x = self.gameObject.curX - self.radius * math.sin(math.radians(theta))
+            y = self.gameObject.curY - self.radius * math.cos(math.radians(theta))
+        else:
+            theta = 10 * (action + 1) - 270
+            x = self.gameObject.curX - self.radius * math.cos(math.radians(theta))
+            y = self.gameObject.curY + self.radius * math.sin(math.radians(theta))
+        
+        return x, y
+
+    def getGameStats(self):
+        self.driver.execute_script("window.getGameStats();")
+        
+        canvasEle = self.driver.find_elements_by_css_selector('canvas')[0]
+        location = canvasEle.location
+        size = canvasEle.size
+        self.driver.save_screenshot('gamescreenshot.png')
+        
+        gameImage = Image.open('gamescreenshot.png')
+        left = location['x']
+        top = location['y']
+        right = location['x'] + size['width']
+        bottom = location['y'] + size['height']
+        gameImage = gameImage.crop((left, top, right, bottom))
+        
+        gameStats = json.loads(self.driver.find_element_by_id('gameStats').get_attribute('innerHTML'))
+        print(self.driver.find_element_by_id('gameStats').get_attribute('innerHTML'))
+        gameObject = GameObservation(gameStats, gameImage)
+        return gameObject
+        
+    def step(self, action):
+        print(action)
+
+        positions = []
+        for act in action:
+            x, y = self.getTargetPos(act)
+            positions.append((x, y))
+        
+        print(positions)
+
+        self.driver.execute_script("window.targetPositions = " + json.dumps(positions) + ";")
+        #self.driver.execute_script("window.targetX = " + str(x) + ";")
+        #self.driver.execute_script("window.targetY = " + str(y) + ";")
+        self.driver.execute_script("window.game.paused = false;")
+        self.gamePause(self.playDuration)
+        self.driver.execute_script("window.game.paused = true;")
+        gameObject = self.getGameStats()
+
+        reward = gameObject.stats['reward']
+        done = gameObject.stats['done']
+        return gameObject, reward, done, {}
 
     def reset(self):
-        global driver
-        driver.refresh()
-        driver.execute_script("window.game.paused = true;")
+        self.driver.refresh()
+        self.driver.execute_script("window.game.paused = true;")
         print('Restart')
 
     def render(self, mode='human'):
         print('Render')
 
     def close(self):
-        driver.close()
+        self.driver.close()
         print('Close')
 
-    def seed(self):
+    def seed(self, seed=None):
+        self.np_random, seed = seeding.np_random(seed)
         print('Seed')
+        return [seed]

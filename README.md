@@ -15,6 +15,10 @@ pip install -e .
 ## Usage
 
 ```
+import gym
+import gym_multisnake
+env = gym.make('multisnake-v0')
+env.step([(100, 200), (600, 650)])
 
 ```
 
