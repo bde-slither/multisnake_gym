@@ -38,6 +38,7 @@ class MultiSnakeEnv(gym.Env):
     gameObject = None
     curPosX = 0
     curPosY = 0
+    stepCount = 0
 
     def gamePause(self, duration):
         try:
@@ -50,17 +51,20 @@ class MultiSnakeEnv(gym.Env):
 
     def __init__(self):
         # initialize the Game, raise error if not implemented.
-        self.action_space = spaces.Tuple((spaces.Discrete(36), spaces.Discrete(36)))
+        # self.action_space = spaces.Tuple((spaces.Discrete(36), spaces.Discrete(36)))
+        self.action_space = spaces.Discrete(36)
         self.observation_space = None
         self.viewer = None
         self.state = None
         self.radius = 200
-        self.playDuration = 10
+        self.playDuration = 0.5
+        self.stepCount = 0
         self.seed()
         self.driver = webdriver.Firefox()
-        self.driver.get("http://localhost:8080/slither-io/")
+        self.driver.get("http://127.0.0.1/slither-io/")
+        #self.driver.get("http://localhost:8080/slither-io/")
+        self.gamePause(1)
         self.driver.execute_script("window.game.paused = true;")
-        self.gamePause(2)
         self.gameObject = self.getGameStats()
         print('Śtarted')
 
@@ -71,19 +75,19 @@ class MultiSnakeEnv(gym.Env):
         if action >= 0 and action <= 8:        
             theta = 10 * (action + 1)
             x = self.gameObject.curX + self.radius * math.sin(math.radians(theta))
-            y = self.gameObject.curY + self.radius * math.cos(math.radians(theta))
+            y = self.gameObject.curY - self.radius * math.cos(math.radians(theta))
         elif action >= 9 and action <= 17:
             theta = 10 * (action + 1) - 90
             x = self.gameObject.curX + self.radius * math.cos(math.radians(theta))
-            y = self.gameObject.curY - self.radius * math.sin(math.radians(theta))
+            y = self.gameObject.curY + self.radius * math.sin(math.radians(theta))
         elif action >= 18 and action <= 26:
             theta = 10 * (action + 1) - 180
             x = self.gameObject.curX - self.radius * math.sin(math.radians(theta))
-            y = self.gameObject.curY - self.radius * math.cos(math.radians(theta))
+            y = self.gameObject.curY + self.radius * math.cos(math.radians(theta))
         else:
             theta = 10 * (action + 1) - 270
             x = self.gameObject.curX - self.radius * math.cos(math.radians(theta))
-            y = self.gameObject.curY + self.radius * math.sin(math.radians(theta))
+            y = self.gameObject.curY - self.radius * math.sin(math.radians(theta))
         
         return x, y
 
@@ -108,12 +112,15 @@ class MultiSnakeEnv(gym.Env):
         return gameObject
         
     def step(self, action):
+        self.stepCount = self.stepCount + 1
         print(action)
 
         positions = []
-        for act in action:
-            x, y = self.getTargetPos(act)
-            positions.append((x, y))
+        x, y = self.getTargetPos(action)
+        positions.append((x, y))
+        #for act in action:
+        #    x, y = self.getTargetPos(act)
+        #    positions.append((x, y))
         
         print(positions)
 
@@ -127,12 +134,20 @@ class MultiSnakeEnv(gym.Env):
 
         reward = gameObject.stats['reward']
         done = gameObject.stats['done']
-        return gameObject, reward, done, {}
+        if self.stepCount >= 500:
+            done = True
+            self.stepCount = 0
+        return gameObject.image, reward, done, {}
 
     def reset(self):
         self.driver.refresh()
+        #self.driver.get("http://localhost:8080/slither-io/")
+        self.gamePause(1)
         self.driver.execute_script("window.game.paused = true;")
+        gameObject = self.getGameStats()
         print('Restart')
+        self.stepCount = 0
+        return gameObject.image
 
     def render(self, mode='human'):
         print('Render')
