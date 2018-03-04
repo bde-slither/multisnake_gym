@@ -50,6 +50,9 @@ class MultiSnakeEnv(gym.Env):
         #except:
         #    pass
 
+    def setNormalSpeed(self):
+        self.driver.execute_script("setNormalSpeed();")
+    
     def __init__(self):
         # initialize the Game, raise error if not implemented.
         # self.action_space = spaces.Tuple((spaces.Discrete(36), spaces.Discrete(36)))
@@ -62,11 +65,12 @@ class MultiSnakeEnv(gym.Env):
         self.stepCount = 0
         self.seed()
         self.driver = webdriver.Firefox()
-        self.driver.get("http://127.0.0.1/slither-io/")
-        #self.driver.get("http://localhost:8080/slither-io/")
+        #self.driver.get("http://127.0.0.1/slither-io/")
+        self.driver.get("http://localhost:8080/slither-io/")
         self.gamePause(0.1)
         self.driver.execute_script("window.game.paused = true;")
         self.getGameStats()
+        self.setNormalSpeed()
         #print('Started')
 
     def getTargetPos(self, action):
@@ -165,11 +169,12 @@ class MultiSnakeEnv(gym.Env):
     def reset(self):
         self.driver.refresh()
         #self.driver.get("http://localhost:8080/slither-io/")
-        self.gamePause(1)
+        self.gamePause(0.1)
         self.driver.execute_script("window.game.paused = true;")
         gameObject = self.getGameStats()
         #print('Restart')
         self.stepCount = 0
+        self.setNormalSpeed()
         return gameObject.image
 
     def render(self, mode='human'):

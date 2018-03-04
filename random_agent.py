@@ -45,7 +45,9 @@ if __name__ == '__main__':
         while True:
             action = agent.act(ob, reward, done)
             ob, reward, done, _ = env.step(action)
+            print (done, reward)
             if done:
+                print (done)
                 break
             # Note there's no env.render() here. But the environment still can open window and
             # render if asked by env.monitor: it calls env.render('rgb_array') to record video.

@@ -7,6 +7,7 @@ for k in range(1, 10):
     for i in range(1, 100):
         ob, reward, done, _ = env.step(18)
         if done:
+            print (done)
             break
 
 env.close()
