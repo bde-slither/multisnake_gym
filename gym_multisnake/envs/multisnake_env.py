@@ -9,6 +9,8 @@ from gym.utils import seeding
 from PIL import Image
 import math
 import json
+import random
+import time
 
 from selenium import webdriver
 from selenium.webdriver.common.by import By
@@ -19,8 +21,6 @@ from selenium.webdriver.support.ui import WebDriverWait
 class GameObservation(object):
     stats = None
     image = None
-    curX = 0
-    curY = 0
 
     # The class "constructor" - It's actually an initializer 
     def __init__(self, stats, image):
@@ -41,13 +41,14 @@ class MultiSnakeEnv(gym.Env):
     stepCount = 0
 
     def gamePause(self, duration):
-        try:
-            print("pause", duration)
-            element = WebDriverWait(self.driver, duration).until(
-                EC.presence_of_element_located((By.ID, "doesNotExist"))
-            )
-        except:
-            pass
+        time.sleep(duration)
+        #try:
+        #    #print("pause", duration)
+        #    element = WebDriverWait(self.driver, duration).until(
+        #        EC.presence_of_element_located((By.ID, "doesNotExist"))
+        #    )
+        #except:
+        #    pass
 
     def __init__(self):
         # initialize the Game, raise error if not implemented.
@@ -61,34 +62,46 @@ class MultiSnakeEnv(gym.Env):
         self.stepCount = 0
         self.seed()
         self.driver = webdriver.Firefox()
-        self.driver.get("http://127.0.0.1/slither-io/")
-        #self.driver.get("http://localhost:8080/slither-io/")
-        self.gamePause(1)
+        #self.driver.get("http://127.0.0.1/slither-io/")
+        self.driver.get("http://localhost:8080/slither-io/")
+        self.gamePause(0.5)
         self.driver.execute_script("window.game.paused = true;")
-        self.gameObject = self.getGameStats()
-        print('Śtarted')
+        self.getGameStats()
+        print('Started')
 
     def getTargetPos(self, action):
+        #print ("getTargetPos")
+        #print (self.gameObject.stats)
+        #print (self.gameObject.stats['snakes'][0]['x'], self.gameObject.stats['snakes'][0]['y'])
+        #print ("Ok")
+
         x = 0
         y = 0
 
-        if action >= 0 and action <= 8:        
-            theta = 10 * (action + 1)
-            x = self.gameObject.curX + self.radius * math.sin(math.radians(theta))
-            y = self.gameObject.curY - self.radius * math.cos(math.radians(theta))
-        elif action >= 9 and action <= 17:
-            theta = 10 * (action + 1) - 90
-            x = self.gameObject.curX + self.radius * math.cos(math.radians(theta))
-            y = self.gameObject.curY + self.radius * math.sin(math.radians(theta))
-        elif action >= 18 and action <= 26:
-            theta = 10 * (action + 1) - 180
-            x = self.gameObject.curX - self.radius * math.sin(math.radians(theta))
-            y = self.gameObject.curY + self.radius * math.cos(math.radians(theta))
+        if action >= 0 and action <= 9:        
+            theta = 10 * (action)
+            x = self.gameObject.stats['snakes'][0]['x'] + self.radius * math.sin(math.radians(theta))
+            y = self.gameObject.stats['snakes'][0]['y'] - self.radius * math.cos(math.radians(theta))
+        elif action >= 10 and action <= 18:
+            theta = 10 * (action) - 90
+            if (action == 18):
+                rn = random.randint(1,2)
+                if rn == 1:
+                    theta = theta - 1
+                else:
+                    theta = theta + 1
+            x = self.gameObject.stats['snakes'][0]['x'] + self.radius * math.cos(math.radians(theta))
+            y = self.gameObject.stats['snakes'][0]['y'] + self.radius * math.sin(math.radians(theta))
+        elif action >= 19 and action <= 27:
+            theta = 10 * (action) - 180
+            x = self.gameObject.stats['snakes'][0]['x'] - self.radius * math.sin(math.radians(theta))
+            y = self.gameObject.stats['snakes'][0]['y'] + self.radius * math.cos(math.radians(theta))
         else:
-            theta = 10 * (action + 1) - 270
-            x = self.gameObject.curX - self.radius * math.cos(math.radians(theta))
-            y = self.gameObject.curY - self.radius * math.sin(math.radians(theta))
+            theta = 10 * (action) - 270
+            x = self.gameObject.stats['snakes'][0]['x'] - self.radius * math.cos(math.radians(theta))
+            y = self.gameObject.stats['snakes'][0]['y'] - self.radius * math.sin(math.radians(theta))
         
+        #print (x, y)
         return x, y
 
     def getGameStats(self):
@@ -104,16 +117,21 @@ class MultiSnakeEnv(gym.Env):
         top = location['y']
         right = location['x'] + size['width']
         bottom = location['y'] + size['height']
-        gameImage = gameImage.crop((left, top, right, bottom))
+        gameImage = gameImage.crop((int(left), int(top), int(right), int(bottom)))
         
-        gameStats = json.loads(self.driver.find_element_by_id('gameStats').get_attribute('innerHTML'))
-        print(self.driver.find_element_by_id('gameStats').get_attribute('innerHTML'))
-        gameObject = GameObservation(gameStats, gameImage)
-        return gameObject
+        stats = self.driver.find_element_by_id('gameStats').get_attribute('innerHTML')
+        gameStats = json.loads(stats)
+        #print (gameStats['snakes'][0]['x'], gameStats['snakes'][0]['y'])
+        #print ('Again')
+        #print (stats)
+        
+        gameImage.save('ss.png')
+        self.gameObject = GameObservation(gameStats, gameImage)
+        return self.gameObject
         
     def step(self, action):
         self.stepCount = self.stepCount + 1
-        print(action)
+        #print(action)
 
         positions = []
         x, y = self.getTargetPos(action)
@@ -122,22 +140,25 @@ class MultiSnakeEnv(gym.Env):
         #    x, y = self.getTargetPos(act)
         #    positions.append((x, y))
         
-        print(positions)
+        # print(positions)
 
         self.driver.execute_script("window.targetPositions = " + json.dumps(positions) + ";")
+        # print (positions)
         #self.driver.execute_script("window.targetX = " + str(x) + ";")
         #self.driver.execute_script("window.targetY = " + str(y) + ";")
         self.driver.execute_script("window.game.paused = false;")
         self.gamePause(self.playDuration)
         self.driver.execute_script("window.game.paused = true;")
-        gameObject = self.getGameStats()
-
-        reward = gameObject.stats['reward']
-        done = gameObject.stats['done']
+        self.getGameStats()
+        
+        reward = self.gameObject.stats['reward']
+        done = self.gameObject.stats['done']
         if self.stepCount >= 500:
             done = True
             self.stepCount = 0
-        return gameObject.image, reward, done, {}
+        
+        print ("Step")
+        return self.gameObject.image, reward, done, {}
 
     def reset(self):
         self.driver.refresh()
