@@ -58,16 +58,16 @@ class MultiSnakeEnv(gym.Env):
         self.viewer = None
         self.state = None
         self.radius = 200
-        self.playDuration = 0.5
+        self.playDuration = 0.01
         self.stepCount = 0
         self.seed()
         self.driver = webdriver.Firefox()
-        #self.driver.get("http://127.0.0.1/slither-io/")
-        self.driver.get("http://localhost:8080/slither-io/")
-        self.gamePause(0.5)
+        self.driver.get("http://127.0.0.1/slither-io/")
+        #self.driver.get("http://localhost:8080/slither-io/")
+        self.gamePause(0.1)
         self.driver.execute_script("window.game.paused = true;")
         self.getGameStats()
-        print('Started')
+        #print('Started')
 
     def getTargetPos(self, action):
         #print ("getTargetPos")
@@ -78,6 +78,8 @@ class MultiSnakeEnv(gym.Env):
         x = 0
         y = 0
 
+        if not (self.gameObject and self.gameObject.stats and self.gameObject.stats['snakes'] and len(self.gameObject.stats['snakes']) > 0):
+            return x, y
         if action >= 0 and action <= 9:        
             theta = 10 * (action)
             x = self.gameObject.stats['snakes'][0]['x'] + self.radius * math.sin(math.radians(theta))
@@ -153,11 +155,11 @@ class MultiSnakeEnv(gym.Env):
         
         reward = self.gameObject.stats['reward']
         done = self.gameObject.stats['done']
-        if self.stepCount >= 500:
-            done = True
-            self.stepCount = 0
-        
-        print ("Step")
+        #if self.stepCount >= 500:
+        #    done = True
+        #    self.stepCount = 0
+        #print ("reward", reward)
+        #print ("Step")
         return self.gameObject.image, reward, done, {}
 
     def reset(self):
@@ -166,7 +168,7 @@ class MultiSnakeEnv(gym.Env):
         self.gamePause(1)
         self.driver.execute_script("window.game.paused = true;")
         gameObject = self.getGameStats()
-        print('Restart')
+        #print('Restart')
         self.stepCount = 0
         return gameObject.image
 
