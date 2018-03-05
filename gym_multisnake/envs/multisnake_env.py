@@ -17,6 +17,7 @@ from selenium.webdriver.common.by import By
 from selenium.webdriver.common.keys import Keys
 from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
+from selenium.webdriver.firefox.options import Options
 
 class GameObservation(object):
     stats = None
@@ -64,14 +65,20 @@ class MultiSnakeEnv(gym.Env):
         self.playDuration = 0.01
         self.stepCount = 0
         self.seed()
-        self.driver = webdriver.Firefox()
-        self.driver.get("http://127.0.0.1/slither-io/")
-        #self.driver.get("http://localhost:8080/slither-io/")
-        self.gamePause(0.1)
+        options = Options()
+        options.add_argument("--headless")
+        self.driver = webdriver.Firefox(firefox_options=options)
+        #self.driver = webdriver.PhantomJS()
+        self.driver.set_window_size(1120, 700)
+        #self.driver.get("http://127.0.0.1/slither-io/")
+        self.driver.get("http://localhost:8080/slither-io/")
+        while self.gameObject == None or self.gameObject.stats == None or 'done' not in self.gameObject.stats:
+            self.getGameStats()
+            self.gamePause(0.5)
         self.driver.execute_script("window.game.paused = true;")
-        self.getGameStats()
+        #self.getGameStats()
         self.setNormalSpeed()
-        #print('Started')
+        print('Started')
 
     def getTargetPos(self, action):
         #print ("getTargetPos")
@@ -136,6 +143,7 @@ class MultiSnakeEnv(gym.Env):
         return self.gameObject
         
     def step(self, action):
+        #print ("Step")
         self.stepCount = self.stepCount + 1
         #print(action)
 
@@ -157,8 +165,8 @@ class MultiSnakeEnv(gym.Env):
         self.driver.execute_script("window.game.paused = true;")
         self.getGameStats()
         
-        reward = self.gameObject.stats['reward']
         done = self.gameObject.stats['done']
+        reward = self.gameObject.stats['reward']
         #if self.stepCount >= 500:
         #    done = True
         #    self.stepCount = 0
@@ -167,15 +175,28 @@ class MultiSnakeEnv(gym.Env):
         return self.gameObject.image, reward, done, {}
 
     def reset(self):
-        self.driver.refresh()
-        #self.driver.get("http://localhost:8080/slither-io/")
-        self.gamePause(0.1)
+        #print ("Reset")
+        self.driver.execute_script("window.game.paused = false;")
+        self.driver.execute_script("resetGame();")
+        self.gameObject = None
+        self.gamePause(0.5)
+        while self.gameObject == None or self.gameObject.stats == None or 'done' not in self.gameObject.stats:
+            self.getGameStats()
+            self.gamePause(0.5)
         self.driver.execute_script("window.game.paused = true;")
-        gameObject = self.getGameStats()
-        #print('Restart')
         self.stepCount = 0
         self.setNormalSpeed()
-        return gameObject.image
+        return self.gameObject.image
+
+        #self.driver.refresh()
+        ##self.driver.get("http://localhost:8080/slither-io/")
+        #self.gamePause(0.1)
+        #self.driver.execute_script("window.game.paused = true;")
+        #gameObject = self.getGameStats()
+        ##print('Reset E')
+        #self.stepCount = 0
+        #self.setNormalSpeed()
+        #return gameObject.image
 
     def render(self, mode='human'):
         print('Render')
