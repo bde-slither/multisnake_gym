@@ -65,8 +65,8 @@ class MultiSnakeEnv(gym.Env):
         self.stepCount = 0
         self.seed()
         self.driver = webdriver.Firefox()
-        #self.driver.get("http://127.0.0.1/slither-io/")
-        self.driver.get("http://localhost:8080/slither-io/")
+        self.driver.get("http://127.0.0.1/slither-io/")
+        #self.driver.get("http://localhost:8080/slither-io/")
         self.gamePause(0.1)
         self.driver.execute_script("window.game.paused = true;")
         self.getGameStats()
