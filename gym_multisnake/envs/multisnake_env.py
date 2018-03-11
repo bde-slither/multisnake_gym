@@ -40,6 +40,7 @@ class MultiSnakeEnv(gym.Env):
     curPosX = 0
     curPosY = 0
     stepCount = 0
+    resetCount = 0
 
     def gamePause(self, duration):
         time.sleep(duration)
@@ -62,16 +63,18 @@ class MultiSnakeEnv(gym.Env):
         self.viewer = None
         self.state = None
         self.radius = 200
-        self.playDuration = 0.01
+        self.playDuration = 0.0075
         self.stepCount = 0
+        self.resetCount = 0
         self.seed()
         options = Options()
         options.add_argument("--headless")
         self.driver = webdriver.Firefox(firefox_options=options)
         #self.driver = webdriver.PhantomJS()
         self.driver.set_window_size(1120, 700)
-        #self.driver.get("http://127.0.0.1/slither-io/")
-        self.driver.get("http://localhost:8080/slither-io/")
+        self.driver.get("http://127.0.0.1/slither-io/")
+        #self.driver.get("http://localhost:8080/slither-io/")
+        self.gamePause(0.5)
         while self.gameObject == None or self.gameObject.stats == None or 'done' not in self.gameObject.stats:
             self.getGameStats()
             self.gamePause(0.5)
@@ -176,10 +179,24 @@ class MultiSnakeEnv(gym.Env):
 
     def reset(self):
         #print ("Reset")
-        self.driver.execute_script("window.game.paused = false;")
-        self.driver.execute_script("resetGame();")
-        self.gameObject = None
-        self.gamePause(0.5)
+        self.resetCount = self.resetCount + 1
+        if self.resetCount == 10000:
+            print ("Reload")
+            self.resetCount = 0
+            self.driver.close()
+            options = Options()
+            options.add_argument("--headless")
+            self.driver = webdriver.Firefox(firefox_options=options)
+            #self.driver = webdriver.PhantomJS()
+            self.driver.set_window_size(1120, 700)
+            self.driver.get("http://127.0.0.1/slither-io/")
+            #self.driver.get("http://localhost:8080/slither-io/")
+            self.gamePause(0.5)
+        else:
+            self.driver.execute_script("window.game.paused = false;")
+            self.driver.execute_script("resetGame();")
+            self.gameObject = None
+            self.gamePause(0.5)
         while self.gameObject == None or self.gameObject.stats == None or 'done' not in self.gameObject.stats:
             self.getGameStats()
             self.gamePause(0.5)
